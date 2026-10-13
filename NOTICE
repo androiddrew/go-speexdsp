@@ -7,9 +7,14 @@ it ports.
 This is a Go port of parts of SpeexDSP 1.2.1 (https://github.com/xiph/speexdsp,
 tag SpeexDSP-1.2.1, commit 1b28a0f61bc31162979e1f26f3981fc3637095c8):
 
+- echo, internal/mdf: libspeexdsp/mdf.c, the echo canceller
+  (Copyright (C) 2003-2008 Jean-Marc Valin).
 - internal/fft: libspeexdsp/smallft.c (FFTPACK via Ogg Vorbis,
   (C) 1994-2001 XIPHOPHORUS Company) and the USE_SMALLFT path of
   libspeexdsp/fftwrap.c (Copyright (C) 2005-2006 Jean-Marc Valin).
+
+internal/room follows talkie-core's simulated room (from wonky-talkie's
+EchoRoom).
 
 Each ported file keeps its upstream copyright notice. SpeexDSP's COPYING is
 retained in third_party/licenses/speexdsp-COPYING.txt. Third-party terms,

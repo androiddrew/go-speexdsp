@@ -41,5 +41,212 @@
     2048
   ],
   "fft_vectors": 3,
-  "generator": "go run ./tools/fixtures"
+  "generator": "go run ./tools/fixtures",
+  "rate": 16000,
+  "frame_fields": [
+    "leak",
+    "adapted",
+    "prob",
+    "agc_gain",
+    "loudness",
+    "vad"
+  ],
+  "scenarios": [
+    {
+      "name": "echo_only",
+      "description": "agent voice through talkie's room (80 ms, -6 dB, 300 ms RT60, tanh speaker), no near end"
+    },
+    {
+      "name": "echo_linear",
+      "description": "agent voice through talkie's room with a linear speaker, no near end"
+    },
+    {
+      "name": "double_talk",
+      "description": "agent voice with the user talking over it from 3.0 s to 5.7 s and 6.2 s to 7.8 s"
+    },
+    {
+      "name": "path_change",
+      "description": "agent voice; at 5 s the room switches to 50 ms delay, -3 dB, 200 ms RT60"
+    },
+    {
+      "name": "noise",
+      "description": "user speech over -35 dBFS low-pass fan noise with a 120 Hz hum, no agent"
+    },
+    {
+      "name": "level",
+      "description": "user speech at -20 dB from 0.5 s to 5.6 s, then at full level from 6.0 s"
+    },
+    {
+      "name": "edge",
+      "description": "1 s of digital silence, 1 s of full-scale square (mic) and triangle (ref), 1 s of full-scale noise on both"
+    }
+  ],
+  "runs": [
+    {
+      "name": "echo_only",
+      "scenario": "echo_only",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -10,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": true,
+        "vad": false
+      }
+    },
+    {
+      "name": "echo_only_f160",
+      "scenario": "echo_only",
+      "pipeline": {
+        "frame": 160,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -10,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": true,
+        "vad": false
+      }
+    },
+    {
+      "name": "echo_linear",
+      "scenario": "echo_linear",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -10,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": true,
+        "vad": false
+      }
+    },
+    {
+      "name": "double_talk",
+      "scenario": "double_talk",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -10,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": true,
+        "vad": false
+      }
+    },
+    {
+      "name": "double_talk_nodenoise",
+      "scenario": "double_talk",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": false,
+        "noise_suppress_db": -10,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": true,
+        "vad": false
+      }
+    },
+    {
+      "name": "path_change",
+      "scenario": "path_change",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -10,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": true,
+        "vad": false
+      }
+    },
+    {
+      "name": "path_change_reset",
+      "scenario": "path_change",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -10,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": true,
+        "vad": false,
+        "reset_frame": 312
+      }
+    },
+    {
+      "name": "noise",
+      "scenario": "noise",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -15,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": false,
+        "vad": false
+      }
+    },
+    {
+      "name": "level",
+      "scenario": "level",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -15,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": true,
+        "agc_level": 8000,
+        "link_echo": false,
+        "vad": true
+      }
+    },
+    {
+      "name": "edge",
+      "scenario": "edge",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -15,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": true,
+        "agc_level": 12000,
+        "link_echo": true,
+        "agc_increment": 20,
+        "agc_decrement": -30,
+        "agc_max_gain": 20,
+        "vad": true,
+        "prob_start": 50,
+        "prob_continue": 30
+      }
+    }
+  ]
 }
