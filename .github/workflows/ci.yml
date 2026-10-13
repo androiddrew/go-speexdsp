@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (Go ${{ matrix.go }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.25.x", "stable"] # declared minimum and latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go vet ./...
+      - run: go test -race ./...
+      # GOAMD64=v3 lets the compiler emit FMA; parity must hold without fusion.
+      - name: go test (GOAMD64=v3)
+        run: GOAMD64=v3 go test ./...
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
