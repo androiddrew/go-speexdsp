@@ -9,6 +9,9 @@ tag SpeexDSP-1.2.1, commit 1b28a0f61bc31162979e1f26f3981fc3637095c8):
 
 - echo, internal/mdf: libspeexdsp/mdf.c, the echo canceller
   (Copyright (C) 2003-2008 Jean-Marc Valin).
+- preprocess: libspeexdsp/preprocess.c, the preprocessor (Copyright (C) 2003
+  Epic Games (written by Jean-Marc Valin), Copyright (C) 2004-2006 Epic
+  Games), and libspeexdsp/filterbank.c (Copyright (C) 2006 Jean-Marc Valin).
 - internal/fft: libspeexdsp/smallft.c (FFTPACK via Ogg Vorbis,
   (C) 1994-2001 XIPHOPHORUS Company) and the USE_SMALLFT path of
   libspeexdsp/fftwrap.c (Copyright (C) 2005-2006 Jean-Marc Valin).

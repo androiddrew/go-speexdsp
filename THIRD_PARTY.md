@@ -7,6 +7,8 @@ the top of each ported file.
 | Component | Source/version | Terms |
 |---|---|---|
 | Echo canceller (`internal/mdf/mdf.go`) | `libspeexdsp/mdf.c`, SpeexDSP 1.2.1, commit `1b28a0f` | BSD-3-Clause (author-name variant), Copyright (C) 2003-2008 Jean-Marc Valin; notice at the top of `mdf.go` |
+| Preprocessor (`preprocess/preprocess.go`) | `libspeexdsp/preprocess.c`, SpeexDSP 1.2.1 | BSD-3-Clause (author-name variant), Copyright (C) 2003 Epic Games (written by Jean-Marc Valin), Copyright (C) 2004-2006 Epic Games; notice at the top of `preprocess.go` |
+| Bark filter bank (`preprocess/filterbank.go`) | `libspeexdsp/filterbank.c`, SpeexDSP 1.2.1 | BSD-3-Clause, Copyright (C) 2006 Jean-Marc Valin; notice at the top of `filterbank.go` |
 | FFT (`internal/fft/smallft.go`) | `libspeexdsp/smallft.c`, SpeexDSP 1.2.1, commit `1b28a0f` | BSD-style, (C) 1994-2001 XIPHOPHORUS Company, `speexdsp-COPYING.txt` |
 | FFT scaling (`internal/fft/fft.go`) | `libspeexdsp/fftwrap.c` (USE_SMALLFT), SpeexDSP 1.2.1 | BSD-3-Clause, Copyright (C) 2005-2006 Jean-Marc Valin, `speexdsp-COPYING.txt` |
 
