@@ -7,9 +7,9 @@
 // applies an Ephraim-Malah gain per frequency bin, smoothed over 24 Bark
 // bands. Linked to an echo.Canceller, it also suppresses the echo the
 // canceller left behind, using the canceller's residual echo estimate. The
-// AGC scales speech frames toward a target loudness. It works on overlapping
-// frames, so its output lags its input by one frame's worth of window
-// overlap, as upstream's does.
+// AGC scales speech frames toward a target loudness. It overlaps each frame
+// with the previous one, so its output lags its input by one frame, as
+// upstream's does.
 //
 // The speech probability steers the residual echo floor and the AGC. As a
 // voice activity detector it is crude; upstream calls it a kludge, and
