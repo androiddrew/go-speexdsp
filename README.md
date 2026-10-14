@@ -99,9 +99,9 @@ create one canceller and one preprocessor per stream. `Cancel`, `Run` and
 
 ## Recommended settings for 16 kHz voice
 
-wonky-talkie's settings, as in the example above: 256-sample frames, a
-4000-sample (250 ms) filter, and the linked preprocessor with denoising at
--10 dB and echo suppression at -40/-15 dB. Run the canceller only while the
+The settings in the example above: 256-sample frames, a 4000-sample (250 ms)
+filter, and the linked preprocessor with denoising at -10 dB and echo
+suppression at -40/-15 dB. Run the canceller only while the
 speaker is playing, plus a hold of about 1 s for the echo tail. Leave the AGC
 off if anything downstream compares levels.
 
