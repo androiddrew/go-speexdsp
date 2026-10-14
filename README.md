@@ -56,6 +56,12 @@ for { // one frame of each, float32 in [-1, 1], from a full-duplex device
 - `Leak` is upstream's leak estimate (0 to 1). `ImpulseResponse` returns the
   learned echo path in natural units: a tap of 0.5 at index d means half the
   played signal returns d samples later.
+- `Snapshot` and `Restore` save and restore the canceller's whole state, so a
+  later session can start with the echo path already learned instead of
+  learning it again. A restored canceller continues bit-exactly; a snapshot
+  only restores into a canceller with the same frame size, filter length and
+  sample rate (`ErrInvalidSnapshot` otherwise). It is about 126 KB for a
+  4096-sample filter at 256-sample frames. Upstream has no equivalent.
 - If upstream's sanity checks decide the filter has diverged, it outputs a
   silent frame and resets itself, as upstream does.
 

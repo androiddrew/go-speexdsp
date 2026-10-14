@@ -27,6 +27,10 @@ var (
 	// ErrInvalidAudio reports a frame of the wrong length or a sample that is
 	// nonfinite or outside [-1, 1].
 	ErrInvalidAudio = errors.New("invalid audio")
+	// ErrInvalidSnapshot reports a snapshot that is corrupt, from another
+	// version, or from a canceller with a different frame size, filter length
+	// or sample rate.
+	ErrInvalidSnapshot = mdf.ErrSnapshot
 )
 
 func init() {
@@ -132,3 +136,20 @@ func (c *Canceller) Leak() float32 { return c.s.LeakEstimate() }
 // SPEEX_ECHO_GET_IMPULSE_RESPONSE returns the same taps multiplied by
 // 32767*2*FrameSize and truncated to integers.
 func (c *Canceller) ImpulseResponse() []float32 { return c.s.ImpulseResponse() }
+
+// Snapshot returns the canceller's whole state: the learned echo path and
+// everything else it adapts. Restore it into a canceller created with the
+// same frame size, filter length and sample rate, in this process or a
+// later one, to start with the echo path already learned. Upstream has no
+// equivalent. At 256-sample frames a snapshot is about 77 KB for a
+// 2048-sample filter and 126 KB for 4096.
+func (c *Canceller) Snapshot() []byte {
+	b, _ := c.s.MarshalBinary() // writing to memory can't fail
+	return b
+}
+
+// Restore replaces the canceller's state with a Snapshot, so it continues
+// exactly as the canceller the snapshot was taken from would have. A linked
+// Preprocessor reads the restored state from the next frame on. On error
+// the canceller is unchanged.
+func (c *Canceller) Restore(snapshot []byte) error { return c.s.UnmarshalBinary(snapshot) }

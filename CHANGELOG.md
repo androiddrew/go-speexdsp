@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- `echo.Canceller.Snapshot` and `Restore`: save the canceller's whole state,
+  the learned echo path included, and restore it into a canceller with the
+  same frame size, filter length and sample rate, in this process or a later
+  one. A restored canceller continues exactly as the original would, so a new
+  session can start with the room already learned (57 dB of echo removed over
+  its first 30 frames in the tests, against 5.5 dB for a new canceller).
+  Upstream has no equivalent.
+  - `ErrInvalidSnapshot` reports a corrupt snapshot, another format version,
+    or a different configuration; the canceller is then unchanged.
+
 ## [0.1.0] - 2026-10-13
 
 ### Added
