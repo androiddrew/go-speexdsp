@@ -32,7 +32,7 @@ func Example() {
 	if err := c.Cancel(mic, played, out); err != nil {
 		log.Fatal(err)
 	}
-	if err := p.Run(out); err != nil {
+	if _, err := p.Run(out); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("speech probability %.2f\n", p.SpeechProbability())

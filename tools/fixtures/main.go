@@ -204,7 +204,7 @@ func recordScenarios(ref, out, work string) []scenario {
 			b(p.Denoise), fmt.Sprint(p.NoiseSuppress), fmt.Sprint(p.EchoSuppress), fmt.Sprint(p.EchoActive),
 			b(p.AGC), fmt.Sprint(p.AGCLevel), b(p.LinkEcho),
 			fmt.Sprint(p.AGCIncrement), fmt.Sprint(p.AGCDecrement), fmt.Sprint(p.AGCMaxGain),
-			b(p.VAD), fmt.Sprint(p.ProbStart), fmt.Sprint(p.ProbContinue), fmt.Sprint(p.ResetFrame))
+			b(p.VAD), fmt.Sprint(p.ProbStart), fmt.Sprint(p.ProbContinue), fmt.Sprint(p.ResetFrame), fmt.Sprint(p.UpdateFrames))
 	}
 	return scen
 }

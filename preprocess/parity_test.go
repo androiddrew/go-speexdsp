@@ -22,6 +22,14 @@ func newRun(t *testing.T, rate int, p fixture.Pipeline) (*echo.Canceller, *Prepr
 		NoiseSuppressDB:      p.NoiseSuppress,
 		EchoSuppressDB:       p.EchoSuppress,
 		EchoSuppressActiveDB: p.EchoActive,
+		AGC:                  p.AGC,
+		AGCLevel:             p.AGCLevel,
+		AGCIncrement:         p.AGCIncrement,
+		AGCDecrement:         p.AGCDecrement,
+		AGCMaxGain:           p.AGCMaxGain,
+		VAD:                  p.VAD,
+		ProbStart:            p.ProbStart,
+		ProbContinue:         p.ProbContinue,
 	}
 	if p.LinkEcho {
 		cfg.Echo = c
@@ -37,7 +45,8 @@ func newRun(t *testing.T, rate int, p fixture.Pipeline) (*echo.Canceller, *Prepr
 // preprocessor and compares the preprocessor with speex_preprocess_run from
 // the pinned C sources. Like C, the preprocessor gets the canceller's
 // output rounded to int16. The output must equal C's before C rounds it
-// (within half an LSB), and the speech probability must match bit for bit.
+// (within half an LSB); the speech probability, AGC gain, loudness and
+// speech decision must match bit for bit.
 func TestParity(t *testing.T) {
 	ref, err := fixture.Load()
 	if err != nil {
@@ -46,9 +55,6 @@ func TestParity(t *testing.T) {
 	for _, r := range ref.Runs {
 		t.Run(r.Name, func(t *testing.T) {
 			p := r.Pipeline
-			if p.AGC {
-				t.Skip("AGC is not ported yet")
-			}
 			rec, err := fixture.Open(r)
 			if err != nil {
 				t.Fatal(err)
@@ -56,7 +62,7 @@ func TestParity(t *testing.T) {
 			c, pp := newRun(t, ref.Rate, p)
 			frame := make([]float32, p.Frame)
 			var worst float64
-			var mismatched, probMismatch int
+			var mismatched, stateMismatch int
 			firstBad := -1
 			for f := range rec.Frames {
 				lo, hi := f*p.Frame, (f+1)*p.Frame
@@ -69,7 +75,13 @@ func TestParity(t *testing.T) {
 				for i, v := range frame {
 					frame[i] = float32(fixture.Round(v*32768)) / 32768
 				}
-				if err := pp.Run(frame); err != nil {
+				var speech bool
+				if f < p.UpdateFrames {
+					err = pp.Update(frame)
+				} else {
+					speech, err = pp.Run(frame)
+				}
+				if err != nil {
 					t.Fatal(err)
 				}
 				for i, v := range frame {
@@ -82,18 +94,30 @@ func TestParity(t *testing.T) {
 						}
 					}
 				}
-				if math.Float32bits(pp.SpeechProbability()) != math.Float32bits(rec.Frames[f][fixture.Prob]) {
-					probMismatch++
+				want := rec.Frames[f]
+				st := pp.st
+				vad := float32(0)
+				switch {
+				case f < p.UpdateFrames:
+					vad = -1
+				case speech:
+					vad = 1
+				}
+				if !same(st.speechProb, want[fixture.Prob]) || !same(st.agcGain, want[fixture.AGCGain]) ||
+					!same(st.loudness, want[fixture.Loudness]) || vad != want[fixture.VAD] {
+					stateMismatch++
 					if firstBad < 0 {
 						firstBad = f
 					}
 				}
 			}
-			t.Logf("max |go - C| = %.3f LSB over %d frames; %d samples round differently, %d speech probabilities differ",
-				worst, len(rec.Frames), mismatched, probMismatch)
-			if mismatched > 0 || probMismatch > 0 {
+			t.Logf("max |go - C| = %.3f LSB over %d frames; %d samples round differently, %d frames' state differs",
+				worst, len(rec.Frames), mismatched, stateMismatch)
+			if mismatched > 0 || stateMismatch > 0 {
 				t.Errorf("first divergence at frame %d (%.2f s)", firstBad, float64(firstBad*p.Frame)/float64(ref.Rate))
 			}
 		})
 	}
 }
+
+func same(a, b float32) bool { return math.Float32bits(a) == math.Float32bits(b) }

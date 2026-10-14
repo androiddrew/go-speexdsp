@@ -11,13 +11,16 @@
  *
  *   ref run FRAME FILTER RATE mic.s16 ref.s16 outdir DENOISE NS ES ESA
  *           AGC AGC_LEVEL LINK AGC_INC AGC_DEC AGC_MAX VAD PSTART PCONT RESET
+ *           UPDATE
  *       Runs mic and ref (raw int16) frame by frame through
  *       speex_echo_cancellation and then speex_preprocess_run, and writes
  *       outdir/aec.s16 (the canceller's output), outdir/pp.s16 (the
  *       preprocessor's) and outdir/frames.f32 with FRAME_FIELDS floats per
  *       frame (see below). AGC_INC, AGC_DEC, AGC_MAX, PSTART and PCONT of 0
  *       leave the upstream default. RESET > 0 calls speex_echo_state_reset
- *       before frame RESET.
+ *       before frame RESET. The first UPDATE frames go through
+ *       speex_preprocess_estimate_update instead of speex_preprocess_run;
+ *       their pp.s16 is the unchanged input and their VAD field is -1.
  *
  * mdf.c and preprocess.c are included rather than linked so the recorder
  * can read state the public API only exposes rounded to integers.
@@ -122,7 +125,7 @@ enum {
 static int cmd_run(int argc, char **argv)
 {
    int frame, filter, rate;
-   int denoise, ns, es, esa, agc, link, inc, dec, maxgain, vad, pstart, pcont, reset;
+   int denoise, ns, es, esa, agc, link, inc, dec, maxgain, vad, pstart, pcont, reset, update;
    float agc_level;
    long nmic, nref, f, frames;
    short *mic, *ref, *out;
@@ -131,7 +134,7 @@ static int cmd_run(int argc, char **argv)
    FILE *aec_out, *pp_out, *frames_out;
    const char *dir;
 
-   if (argc != 20) { fprintf(stderr, "usage: ref run FRAME FILTER RATE mic.s16 ref.s16 outdir DENOISE NS ES ESA AGC AGC_LEVEL LINK AGC_INC AGC_DEC AGC_MAX VAD PSTART PCONT RESET\n"); return 2; }
+   if (argc != 21) { fprintf(stderr, "usage: ref run FRAME FILTER RATE mic.s16 ref.s16 outdir DENOISE NS ES ESA AGC AGC_LEVEL LINK AGC_INC AGC_DEC AGC_MAX VAD PSTART PCONT RESET UPDATE\n"); return 2; }
    frame = atoi(argv[0]); filter = atoi(argv[1]); rate = atoi(argv[2]);
    mic = read_s16(argv[3], &nmic);
    ref = read_s16(argv[4], &nref);
@@ -140,7 +143,7 @@ static int cmd_run(int argc, char **argv)
    agc = atoi(argv[10]); agc_level = atof(argv[11]); link = atoi(argv[12]);
    inc = atoi(argv[13]); dec = atoi(argv[14]); maxgain = atoi(argv[15]);
    vad = atoi(argv[16]); pstart = atoi(argv[17]); pcont = atoi(argv[18]);
-   reset = atoi(argv[19]);
+   reset = atoi(argv[19]); update = atoi(argv[20]);
    if (nmic != nref) { fprintf(stderr, "run: mic has %ld samples, ref %ld\n", nmic, nref); return 1; }
 
    echo = speex_echo_state_init(frame, filter);
@@ -173,7 +176,12 @@ static int cmd_run(int argc, char **argv)
          speex_echo_state_reset(echo);
       speex_echo_cancellation(echo, mic + f * frame, ref + f * frame, out);
       if (fwrite(out, sizeof(short), frame, aec_out) != (size_t)frame) { perror("write"); exit(1); }
-      speech = speex_preprocess_run(pp, out);
+      if (f < update)
+      {
+         speex_preprocess_estimate_update(pp, out);
+         speech = -1;
+      } else
+         speech = speex_preprocess_run(pp, out);
       if (fwrite(out, sizeof(short), frame, pp_out) != (size_t)frame) { perror("write"); exit(1); }
       rec[F_LEAK] = echo->leak_estimate;
       rec[F_ADAPTED] = echo->adapted;

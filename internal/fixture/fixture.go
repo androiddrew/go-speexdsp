@@ -35,7 +35,8 @@ type Pipeline struct {
 	AGCDecrement  int     `json:"agc_decrement"`
 	AGCMaxGain    int     `json:"agc_max_gain"`
 	VAD           bool    `json:"vad"`
-	ResetFrame    int     `json:"reset_frame"` // > 0: reset the canceller before this frame
+	ResetFrame    int     `json:"reset_frame"`   // > 0: reset the canceller before this frame
+	UpdateFrames  int     `json:"update_frames"` // the first frames go through estimate_update
 	ProbStart     int     `json:"prob_start"`
 	ProbContinue  int     `json:"prob_continue"`
 }

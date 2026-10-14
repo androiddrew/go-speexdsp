@@ -193,8 +193,11 @@ type pipeline struct {
 	AGCMaxGain    int     `json:"agc_max_gain,omitempty"`
 	VAD           bool    `json:"vad"`
 	ResetFrame    int     `json:"reset_frame,omitempty"` // > 0: reset the canceller before this frame
-	ProbStart     int     `json:"prob_start,omitempty"`
-	ProbContinue  int     `json:"prob_continue,omitempty"`
+	// UpdateFrames > 0 sends the first frames through
+	// speex_preprocess_estimate_update instead of speex_preprocess_run.
+	UpdateFrames int `json:"update_frames,omitempty"`
+	ProbStart    int `json:"prob_start,omitempty"`
+	ProbContinue int `json:"prob_continue,omitempty"`
 }
 
 var (
@@ -223,6 +226,8 @@ func runs() []runSpec {
 	f160.Frame = 160
 	nodenoise := wonky
 	nodenoise.Denoise = false
+	update := denoise
+	update.UpdateFrames = rate / update.Frame // the first second, as if muted
 	reset := wonky
 	reset.ResetFrame = 5 * rate / reset.Frame // when the room changes
 	return []runSpec{
@@ -234,6 +239,7 @@ func runs() []runSpec {
 		{"path_change", "path_change", wonky},
 		{"path_change_reset", "path_change", reset},
 		{"noise", "noise", denoise},
+		{"noise_update", "noise", update},
 		{"level", "level", agc},
 		{"edge", "edge", everything},
 	}

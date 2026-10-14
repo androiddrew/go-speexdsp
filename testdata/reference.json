@@ -212,6 +212,23 @@
       }
     },
     {
+      "name": "noise_update",
+      "scenario": "noise",
+      "pipeline": {
+        "frame": 256,
+        "filter": 4000,
+        "denoise": true,
+        "noise_suppress_db": -15,
+        "echo_suppress_db": -40,
+        "echo_suppress_active_db": -15,
+        "agc": false,
+        "agc_level": 8000,
+        "link_echo": false,
+        "vad": false,
+        "update_frames": 62
+      }
+    },
+    {
       "name": "level",
       "scenario": "level",
       "pipeline": {

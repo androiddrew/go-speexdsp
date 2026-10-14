@@ -45,6 +45,11 @@ const (
 	noiseSuppressDefault  = -15
 	echoSuppressDefault   = -40
 	echoSuppressActiveDef = -15
+	speechProbStartDef    = float32(.35)
+	speechProbContinueDef = float32(.20)
+
+	loudnessExp = float32(5)
+	ampScale    = float32(.001)
 )
 
 // state is SpeexPreprocessState. Like mdf, every expression keeps C's
@@ -66,6 +71,23 @@ type state struct {
 	gain, prior, post, s, smin, stmp                                      []float32
 	updateProb                                                            []bool
 	zeta, echoNoise, residualEcho, inbuf, outbuf                          []float32
+
+	// AGC, float build only upstream.
+	agc                              bool
+	agcLevel                         float32
+	loudnessAccum                    float32
+	loudnessWeight                   []float32 // perceptual loudness curve
+	loudness                         float32   // loudness estimate
+	agcGain                          float32   // current AGC gain
+	maxGain                          float32   // maximum gain allowed
+	maxIncreaseStep, maxDecreaseStep float32   // per-frame gain change limits
+	prevLoudness                     float32   // loudness of previous frame
+	initMax                          float32   // current gain limit during initialisation
+
+	vad                                 bool
+	speechProbStart, speechProbContinue float32
+	wasSpeech                           bool
+	reverbDecay                         float32 // dereverb is not ported; always 0
 
 	nbAdapt, minCount int
 	fft               *fft.FFT
@@ -154,7 +176,87 @@ func newState(frameSize, samplingRate int) *state {
 	for i := range n {
 		st.updateProb[i] = true
 	}
+	st.speechProbStart = speechProbStartDef
+	st.speechProbContinue = speechProbContinueDef
+
+	st.agcLevel = 8000
+	st.loudnessWeight = make([]float32, n)
+	for i := range n {
+		ff := float32(float64(float32(i)) * .5 * float64(samplingRate) / float64(float32(n)))
+		w := float32(float64(float32(.35)-(float32(.35)*ff)/16000) +
+			float64(float64(float32(.73))*math.Exp(float64((float32(-.5)*(ff-3800))*(ff-3800)/float32(9e5)))))
+		if w < float32(.01) {
+			w = float32(.01)
+		}
+		st.loudnessWeight[i] = w * w
+	}
+	st.loudness = float32(1e-15)
+	st.agcGain = 1
+	st.maxGain = 30
+	st.maxIncreaseStep = float32(math.Exp(float64(float32(0.11513)) * 12. * float64(frameSize) / float64(samplingRate)))
+	st.maxDecreaseStep = float32(math.Exp(float64(-float32(0.11513)) * 40. * float64(frameSize) / float64(samplingRate)))
+	st.prevLoudness = 1
+	st.initMax = 1
 	return st
+}
+
+// setAGCIncrement is SPEEX_PREPROCESS_SET_AGC_INCREMENT (dB/s).
+func (st *state) setAGCIncrement(db int) {
+	st.maxIncreaseStep = float32(math.Exp(float64(float32(0.11513) * float32(db) * float32(st.frameSize) / float32(st.samplingRate))))
+}
+
+// setAGCDecrement is SPEEX_PREPROCESS_SET_AGC_DECREMENT (dB/s).
+func (st *state) setAGCDecrement(db int) {
+	st.maxDecreaseStep = float32(math.Exp(float64(float32(0.11513) * float32(db) * float32(st.frameSize) / float32(st.samplingRate))))
+}
+
+// setAGCMaxGain is SPEEX_PREPROCESS_SET_AGC_MAX_GAIN (dB).
+func (st *state) setAGCMaxGain(db int) {
+	st.maxGain = float32(math.Exp(float64(float32(0.11513) * float32(db))))
+}
+
+// computeAGC is speex_compute_agc: track the loudness of speech frames and
+// scale the spectrum ft toward agcLevel.
+func (st *state) computeAGC(pframe float32, ft []float32) {
+	n := st.psSize
+	loudness := float32(1)
+	for i := 2; i < n; i++ {
+		loudness += float32(2 * float32(n) * st.ps[i] * st.loudnessWeight[i])
+	}
+	loudness = float32(math.Sqrt(float64(loudness)))
+	if pframe > float32(.3) {
+		rate := float32(.03 * float64(pframe) * float64(pframe))
+		st.loudness = float32(float64((1-rate)*st.loudness) +
+			float64(float64(rate)*math.Pow(float64(ampScale*loudness), float64(loudnessExp))))
+		st.loudnessAccum = float32((1-rate)*st.loudnessAccum) + rate
+		if st.initMax < st.maxGain && st.nbAdapt > 20 {
+			st.initMax *= 1 + float32(float32(.1)*pframe*pframe)
+		}
+	}
+
+	targetGain := float32(float64(ampScale*st.agcLevel) *
+		math.Pow(float64(st.loudness)/(1e-4+float64(st.loudnessAccum)), float64(-1/loudnessExp)))
+
+	if (float64(pframe) > .5 && st.nbAdapt > 20) || targetGain < st.agcGain {
+		if targetGain > st.maxIncreaseStep*st.agcGain {
+			targetGain = st.maxIncreaseStep * st.agcGain
+		}
+		if targetGain < st.maxDecreaseStep*st.agcGain && loudness < 10*st.prevLoudness {
+			targetGain = st.maxDecreaseStep * st.agcGain
+		}
+		if targetGain > st.maxGain {
+			targetGain = st.maxGain
+		}
+		if targetGain > st.initMax {
+			targetGain = st.initMax
+		}
+		st.agcGain = targetGain
+	}
+
+	for i := range 2 * n {
+		ft[i] *= st.agcGain
+	}
+	st.prevLoudness = loudness
 }
 
 // hypergeomGain is hypergeom_gain: approximately
@@ -267,11 +369,10 @@ func (st *state) updateNoiseProb() {
 	}
 }
 
-// run is speex_preprocess_run up to the speech decision, which the caller
-// makes. x is one frame in 16-bit units, processed in place, and saturated
-// to the int16 range but not rounded. It returns the frame's speech
-// probability.
-func (st *state) run(x []float32) float32 {
+// run is speex_preprocess_run. x is one frame in 16-bit units, processed in
+// place, and saturated to the int16 range but not rounded. It returns
+// upstream's speech decision, which is always true with the VAD off.
+func (st *state) run(x []float32) bool {
 	n := st.psSize
 	n3 := 2*n - st.frameSize
 	ps := st.ps
@@ -428,8 +529,27 @@ func (st *state) run(x []float32) float32 {
 	st.ft[0] = st.gain2[0] * st.ft[0]
 	st.ft[2*n-1] = st.gain2[n-1] * st.ft[2*n-1]
 
+	if st.agc {
+		st.computeAGC(pframe, st.ft)
+	}
+
 	// Inverse FFT with 1/N scaling.
 	st.fft.Inverse(st.ft, st.frame)
+
+	if st.agc {
+		var maxSample float32
+		for _, v := range st.frame {
+			if abs32(v) > maxSample {
+				maxSample = abs32(v)
+			}
+		}
+		if maxSample > 28000 {
+			damp := 28000 / maxSample
+			for i := range st.frame {
+				st.frame[i] *= damp
+			}
+		}
+	}
 
 	// Synthesis window (for WOLA).
 	for i := range 2 * n {
@@ -444,8 +564,51 @@ func (st *state) run(x []float32) float32 {
 	// Update outbuf.
 	copy(st.outbuf, st.frame[st.frameSize:st.frameSize+n3])
 
+	// "FIXME: This VAD is a kludge"
 	st.speechProb = pframe
-	return pframe
+	if !st.vad {
+		return true
+	}
+	if st.speechProb > st.speechProbStart || (st.wasSpeech && st.speechProb > st.speechProbContinue) {
+		st.wasSpeech = true
+		return true
+	}
+	st.wasSpeech = false
+	return false
+}
+
+// estimateUpdate is speex_preprocess_estimate_update: update the noise
+// estimate and the overlap without producing output.
+func (st *state) estimateUpdate(x []float32) {
+	n := st.psSize
+	n3 := 2*n - st.frameSize
+	m := st.nbands
+	ps := st.ps
+
+	st.minCount++
+	st.analysis(x)
+	st.updateNoiseProb()
+
+	for i := 1; i < n-1; i++ {
+		if !st.updateProb[i] || ps[i] < st.noise[i] {
+			st.noise[i] = float32(float32(.95)*st.noise[i]) + float32(float32(.05)*ps[i])
+		}
+	}
+	for i := range n3 {
+		st.outbuf[i] = x[st.frameSize-n3+i] * st.window[st.frameSize+i]
+	}
+	// Save old power spectrum.
+	copy(st.oldPS, ps[:n+m])
+	for i := range n {
+		st.reverbEstimate[i] = st.reverbDecay * st.reverbEstimate[i]
+	}
+}
+
+func abs32(x float32) float32 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func min32(a, b float32) float32 {
