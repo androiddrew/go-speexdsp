@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
 ### Added
 
 - `echo.Canceller.Snapshot` and `Restore`: save the canceller's whole state,
@@ -60,5 +62,6 @@
   echo suppression cannot be configured.
 - About 11 MB of test data is part of the module download.
 
-[Unreleased]: https://github.com/androiddrew/go-speexdsp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/androiddrew/go-speexdsp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/androiddrew/go-speexdsp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/androiddrew/go-speexdsp/releases/tag/v0.1.0
